@@ -64,3 +64,24 @@ def im_compile(filename, path=None):
                     image = rdr.read(c=c_cnt, t=t_cnt, z=z_cnt, rescale=False)
                     mat[:, :, c_cnt, z_cnt, t_cnt] = image
     return mat
+
+def max_int_proj(image_array, z_axis, squeeze=True):
+    """
+    Generate a maximum intensity projection of an ndarray image stack
+
+    Uses numpy sum to sum all the images of the z-dimension to generate a
+    maximum intensity projection and squeeze the resulting ndarray.
+
+    Args:
+        image_array: An ndarray containing images.
+        axis: The axis about which to perform the sum operation
+        squeeze: Perform squeeze on resutling ndarray?
+
+    Returns:
+        An ndarray of the maximum intensity projection.
+    """
+    if squeeze:
+        return image_array.sum(axis=z_axis).squeeze()
+    else:
+        return image_array.sum(axis=z_axis)
+    
