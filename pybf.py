@@ -28,7 +28,7 @@ def kill_vm():
 
 
 
-def im_compile(filename, path=None):
+def im_compile(filename, path=None, rescale=False):
     """
     Converts image stack to a numpy nd array using python-bioformats.
 
@@ -61,7 +61,8 @@ def im_compile(filename, path=None):
         for c_cnt in range(ome_data.image().Pixels.channel_count):
             for t_cnt in range(ome_data.image().Pixels.SizeT):
                 for z_cnt in range(ome_data.image().Pixels.SizeZ):
-                    image = rdr.read(c=c_cnt, t=t_cnt, z=z_cnt, rescale=False)
+                    image = rdr.read(c=c_cnt, t=t_cnt, z=z_cnt,
+                                     rescale=rescale)
                     mat[:, :, c_cnt, z_cnt, t_cnt] = image
     return mat
 
@@ -82,6 +83,31 @@ def max_int_proj(image_array, z_axis, squeeze=True):
     """
     if squeeze:
         return image_array.sum(axis=z_axis).squeeze()
-    else:
-        return image_array.sum(axis=z_axis)
+    return image_array.sum(axis=z_axis)
+
+def assign_dimensions(image_array, channels, zsteps, timepoints):
+    """
+    Explicitly reshape a hypderstack to a particular set of dimensions.
     
+    Reshapes the ndarray of the image hyperstack by to a specified set of
+    dimensions. Order of the ndarray is [Y, X, Channels, Z, Timepoints]
+    
+    Args:
+        image_array: An ndarray containing images with the dimension order
+            [Y, X, C, Z, T]
+        axis_to_split: The axis that contains two or more dimensions we want to
+            split.
+        channels: Number of channels in the hyperstack.
+        zsteps: Number of z-steps per timepoints in the hyperstack.
+        timepoints: Number timepoints in the hyperstack.
+
+    Returns:
+        An ndarray of images.
+    """
+
+    image_array = image_array.reshape([image_array.shape[0],
+                       image_array.shape[1],
+                       channels,
+                       zsteps,
+                       timepoints])
+    return image_array
