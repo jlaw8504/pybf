@@ -111,3 +111,24 @@ def assign_dimensions(image_array, channels, zsteps, timepoints):
                        zsteps,
                        timepoints])
     return image_array
+
+def scale_8bit(image_array):
+    """
+    Scale image intensity values in a hyperstack to 8-bit values and convert to
+    type to uint8.
+    
+    Subtracts the minimum value from each element of the ndarray to set the
+    minimum to 0. Then divides each element of the ndarray by the maximum value
+    of the array to set the max intensity value to 1. Then multiplies each 
+    value by 255 and changes type to uint8.
+    
+    Args:
+        image_array: An ndarray containing images with the dimension order
+            [Y, X, C, Z, T]
+    
+    Returns:
+        An ndarray of images with an uint8 data type.
+    """
+
+    image_array = image_array - image_array.min()
+    return (image_array/image_array.max()*255).astype('uint8')
