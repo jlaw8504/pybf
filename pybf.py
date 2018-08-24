@@ -85,13 +85,17 @@ def max_int_proj(image_array, z_axis, squeeze=True):
         return image_array.sum(axis=z_axis).squeeze()
     return image_array.sum(axis=z_axis)
 
-def assign_dimensions(image_array, channels, zsteps, timepoints):
+def deint_zt(image_array, num_channels, num_zsteps, num_timepoints):
     """
-    Explicitly reshape a hypderstack to a particular set of dimensions.
-    
+    Deinterleave the z and t channels into two separate dimensions.
+
     Reshapes the ndarray of the image hyperstack by to a specified set of
-    dimensions. Order of the ndarray is [Y, X, Channels, Z, Timepoints]
-    
+    dimensions. Order of returned ndarray is [Y, X, Channels, Z, Timepoints].
+    Since the order of the interleaved image planes is z1t1, z2t1, z1t2, z2t2
+    z1t3, z12t3, the ndarray must first be reshaped by the number of timepoints
+    and then the number of zsteps. However, this creates an improper order, so
+    we must swap the last two axes.
+
     Args:
         image_array: An ndarray containing images with the dimension order
             [Y, X, C, Z, T]
@@ -106,29 +110,55 @@ def assign_dimensions(image_array, channels, zsteps, timepoints):
     """
 
     image_array = image_array.reshape([image_array.shape[0],
-                       image_array.shape[1],
-                       channels,
-                       zsteps,
-                       timepoints])
+                                       image_array.shape[1],
+                                       num_channels,
+                                       num_timepoints,  #actually z-dimension
+                                       num_zsteps])  #actually t-dimension
+    image_array = image_array.swapaxes(-2,-1)
     return image_array
 
 def scale_8bit(image_array):
     """
     Scale image intensity values in a hyperstack to 8-bit values and convert to
     type to uint8.
-    
+
     Subtracts the minimum value from each element of the ndarray to set the
     minimum to 0. Then divides each element of the ndarray by the maximum value
-    of the array to set the max intensity value to 1. Then multiplies each 
+    of the array to set the max intensity value to 1. Then multiplies each
     value by 255 and changes type to uint8.
-    
+
     Args:
         image_array: An ndarray containing images with the dimension order
             [Y, X, C, Z, T]
-    
+
     Returns:
         An ndarray of images with an uint8 data type.
     """
 
     image_array = image_array - image_array.min()
     return (image_array/image_array.max()*255).astype('uint8')
+
+def blur_otsu_contours(image, ksize=9):
+    """
+    Returns contours after median blurring and generating a binary image by
+    applying an Otsu-based threshold on a single 8bit image.
+
+    Apply cv2.medianBlur on an image, then apply cv2.threshold using
+    cv2.THRESH_BINARY+cv2.THRESH_OTSU. Then use cv2.findContours with
+    cv2.RETR_EXTERNAL and cv2.CHAIN_APPROX_SIMPLE.
+
+    Args:
+        image: A grayscale, 8bit image
+        ksize: Kernel size of the medianBlur filter
+
+    Returns:
+        A list of contours packaged as numpy arrays
+    """
+    import cv2
+
+    blur = cv2.medianBlur(image, ksize)
+    _, otsu = cv2.threshold(blur, blur.min(), blur.max(),
+                            cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    _, contours, _ = cv2.findContours(otsu, cv2.RETR_EXTERNAL,
+                                      cv2.CHAIN_APPROX_SIMPLE)
+    return contours
