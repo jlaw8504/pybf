@@ -4,6 +4,7 @@ prep.py
 # Image Files
 *.stk
 *.nd2
+*.tif
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

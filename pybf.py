@@ -64,7 +64,7 @@ def im_compile(filename, path=None, rescale=False):
                     image = rdr.read(c=c_cnt, t=t_cnt, z=z_cnt,
                                      rescale=rescale)
                     mat[:, :, c_cnt, z_cnt, t_cnt] = image
-    return mat
+    return mat.astype(ome_data.image().Pixels.PixelType)
 
 def max_int_proj(image_array, z_axis, squeeze=True):
     """
@@ -114,7 +114,7 @@ def deint_zt(image_array, num_channels, num_zsteps, num_timepoints):
                                        num_channels,
                                        num_timepoints,  #actually z-dimension
                                        num_zsteps])  #actually t-dimension
-    image_array = image_array.swapaxes(-2,-1)
+    image_array = image_array.swapaxes(-2, -1)
     return image_array
 
 def scale_8bit(image_array):
@@ -154,6 +154,7 @@ def blur_otsu_contours(image, ksize=9):
     Returns:
         A list of contours packaged as numpy arrays
     """
+
     import cv2
 
     blur = cv2.medianBlur(image, ksize)
@@ -162,3 +163,98 @@ def blur_otsu_contours(image, ksize=9):
     _, contours, _ = cv2.findContours(otsu, cv2.RETR_EXTERNAL,
                                       cv2.CHAIN_APPROX_SIMPLE)
     return contours
+
+def find_bounds(contours):
+    """
+    Converts contours to a list of numpy arrays containing the minimum x and y
+    coordinates (the top-left corner) and the width and height of a rectangle
+    fitting the contours.
+
+    Iterate over all contours and use cv2.boundingRect to calculate the x and y
+    coordinates and the with and height of a bounding rectangle.
+
+    Args:
+        contours: A list of numpy arrays containing contours
+
+    Returns:
+        A list of lists containing [x,y,w,h] where x and y are the minimum
+        values (top-left corner of image), w is the width, and h is the height.
+    """
+
+    import cv2
+
+    bounds = []
+    for contour in contours:
+        x_coord, y_coord, width, height = cv2.boundingRect(contour)
+        bounds.append([x_coord, y_coord, width, height])
+    return bounds
+
+def crop_images(image_array, bounds, square_override=True, square_side=45):
+    """
+    Generate a list of cropped images.
+
+    Crops an image array in the x and y axis using bounds to determine top-left
+    corner position. By default, cropped image is a square with a with of 45
+    pixels. Can use width and heigth in bounds array if crop_sqare is False.
+
+    Args:
+        image_array: An ndarray containing images with the dimension order
+            [Y, X, C, Z, T]
+        bounds: A list of lists containing [x,y,w,h] where x and y are the
+            minimum values (top-left corner of image), w is the width, and h is
+            the height.
+        square_override: Toggles that cropped images should be square with a
+            length specified by square_side. If False, width and height are set
+            by the bounds
+        square_side: The size, in pixels, of the side of the cropped image.
+    """
+    im_list = []
+    for bound in bounds:
+        if square_override:
+            im_list.append(
+                image_array[bound[1]:bound[1]+square_side,
+                            bound[0]:bound[0]+square_side])
+        else:
+            im_list.append(
+                image_array[bound[1]:bound[1]+bound[3],
+                            bound[0]:bound[0]+bound[2]])
+    return im_list
+
+def write_hyper(image_array, filename, path=None):
+    """
+    Writes an image array as a multiplane TIFF file.
+
+    Iterates over the dimensions of the image array and writes the TIFF image
+    file using python bioformats write_image function.
+
+    Args:
+        image_array: An ndarray containing images with the dimension order
+            [Y, X, C, Z, T]
+        filename: The name of the TIFF file you want to save.
+        path: The directory you want to save the TIFF file to. None will save
+        to current working directory
+    """
+    import bioformats as bf
+    import os
+
+    if path:
+        fullfile = os.path.join(path, filename)
+    else:
+        fullfile = filename
+    if image_array.dtype == 'uint16':
+        pixel_type = bf.PT_UINT16
+    elif image_array.dtype == 'uint8':
+        pixel_type = bf.PT_UINT8
+    else:
+        pixel_type = bf.PT_UINT16
+    [_, _, c_size, z_size, t_size] = image_array.shape
+    #The order the hyperstack is written is critical
+    #This will write the hypderstack in XYCTZ order
+    for t_idx in range(t_size):
+        for z_idx in range(z_size):
+            for c_idx in range(c_size):
+                bf.write_image(fullfile,
+                               image_array[:, :, c_idx, z_idx, t_idx],
+                               pixel_type,
+                               c=c_idx, z=z_idx, t=t_idx,
+                               size_c=c_size, size_z=z_size, size_t=t_size)
