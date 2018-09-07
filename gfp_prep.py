@@ -21,8 +21,8 @@ ret, otsu = cv2.threshold(blur, plane8.min(), plane8.max(),
 _, contours, _ = cv2.findContours(otsu, cv2.RETR_EXTERNAL,
                                   cv2.CHAIN_APPROX_SIMPLE)
 bounds = pybf.find_bounds(contours)
-
-im_list = pybf.crop_images(image_array, bounds)
+centers = pybf.find_centers(contours)
+im_list = pybf.crop_square(image_array, centers)
 for i, im in enumerate(im_list):
     filename = 'GFP1_' + str(i) + '.tif'
     pybf.write_hyper(im, filename)

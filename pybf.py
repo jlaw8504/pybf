@@ -189,13 +189,67 @@ def find_bounds(contours):
         bounds.append([x_coord, y_coord, width, height])
     return bounds
 
-def crop_images(image_array, bounds, square_override=True, square_side=45):
+def find_centers(contours):
     """
-    Generate a list of cropped images.
+    Returns the position of the center of a contour
 
-    Crops an image array in the x and y axis using bounds to determine top-left
-    corner position. By default, cropped image is a square with a with of 45
-    pixels. Can use width and heigth in bounds array if crop_sqare is False.
+    Use cv2.moments to calculate and return the x and y positons of the center
+    of a contour.
+
+    Args:
+        contours: A list of numpy arrays containing contours
+
+    Returns:
+        A list of lists containing [center_x, center_y] where center_x is the
+        X-coordinate of a contour's center and where center_y is the
+        Y-cooridnate of a contour's center.
+    """
+    import cv2
+
+    centers = []
+    for contour in contours:
+        moments = cv2.moments(contour)
+        center_x = int(moments['m10'] / moments['m00'])
+        center_y = int(moments['m01'] / moments['m00'])
+        centers.append([center_x, center_y])
+    return centers
+
+def crop_square(image_array, centers, square_side=45):
+    """
+    Generate a list of cropped images with center of contour inside a square
+    region of defined size
+    
+    Crops an image array in the x and y axis using center postion of the
+    contour to center the countour inside a square region of a specified size.
+    
+    Args:
+        image_array: An ndarray containing images with the dimension order
+            [Y, X, C, Z, T].
+        centers: A list of lists containing [center_x, center_y].
+        square_side: The size, in pixels, of the side of the cropped image.
+            This value must be an odd integer.
+
+    Returns:
+        A list of image arrays.
+    """
+    if square_side%2 == 0:
+        raise ValueError('square_side must be an even integer')
+    offset = int((square_side-1)/2)
+    im_list = []
+    for center in centers:
+        center_x = center[0]
+        center_y = center[1]
+        im_list.append(
+                image_array[center_y - offset: center_y + offset + 1,
+                            center_x - offset: center_x + offset + 1])
+    return im_list
+
+def crop_tight(image_array, bounds):
+    """
+    Generate a list of images cropped to fit a rectangle.
+
+    Crops an image array in the x and y axis using bounds argument to determine
+    top-left corner position.
 
     Args:
         image_array: An ndarray containing images with the dimension order
@@ -203,18 +257,9 @@ def crop_images(image_array, bounds, square_override=True, square_side=45):
         bounds: A list of lists containing [x,y,w,h] where x and y are the
             minimum values (top-left corner of image), w is the width, and h is
             the height.
-        square_override: Toggles that cropped images should be square with a
-            length specified by square_side. If False, width and height are set
-            by the bounds
-        square_side: The size, in pixels, of the side of the cropped image.
     """
     im_list = []
     for bound in bounds:
-        if square_override:
-            im_list.append(
-                image_array[bound[1]:bound[1]+square_side,
-                            bound[0]:bound[0]+square_side])
-        else:
             im_list.append(
                 image_array[bound[1]:bound[1]+bound[3],
                             bound[0]:bound[0]+bound[2]])
