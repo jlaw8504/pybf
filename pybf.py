@@ -258,3 +258,35 @@ def write_hyper(image_array, filename, path=None):
                                pixel_type,
                                c=c_idx, z=z_idx, t=t_idx,
                                size_c=c_size, size_z=z_size, size_t=t_size)
+
+def histomaker (image,im_dir, bin_num):
+    """
+    Create a histogram of pixel intensities for a single image
+    
+    Uses pillows to open the selected .tif image. Converts pixel intensities into 
+    a 2D numpy array. The 2D numpy array is then converted to a 1D numpy array, 
+    which is then plotted as a histogram. 
+    
+    Args:
+        image: The image file name
+        im_dir: The directory in which the image file exists
+        bin_num: The number of bins needed for the histogram
+        
+    Returns: 
+        A histogram with a user determined number of bins for a single image.
+
+    """
+    import os
+    from PIL import Image
+    import numpy as np
+    import matplotlib.pyplot as plt
+    
+    os.chdir(im_dir)
+    
+    im = Image.open(image)
+    imarray = np.array(im)
+    imarray_1d = np.ravel(imarray)
+
+    histogram = plt.hist(imarray_1d, bins= bin_num, range=[imarray_1d.min(), imarray_1d.max()])
+    
+    return(histogram)
